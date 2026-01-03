@@ -6,4 +6,5 @@ class Actions:
     punch: bool = False
     kick: bool = False
     block: bool = False
+    jump: bool = False
 
