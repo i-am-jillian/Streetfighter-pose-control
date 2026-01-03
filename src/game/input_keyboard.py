@@ -12,4 +12,7 @@ def get_actions_player1() -> Actions:
     elif key[pygame.K_RIGHT]:
         movex = 1
 
-    return Actions(movex=movex)
+    #jump
+    jump = key[pygame.K_UP]
+
+    return Actions(movex=movex, jump=jump)

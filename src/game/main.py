@@ -40,6 +40,7 @@ while run:
     actions_p1 = get_actions_player1()
     #move fighters
     fighter1.movex(actions_p1)
+    fighter1.movey(actions_p1)
 
     #draw fighters
     fighter1.draw(screen)
