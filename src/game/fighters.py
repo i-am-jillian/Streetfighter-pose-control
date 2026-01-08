@@ -1,12 +1,14 @@
 import pygame
 from actions import Actions
 
-GRAVITY = 2
+GRAVITY = 2 
 JUMP_VELOCITY = -30
 FLOOR_TOP_Y = 310
 IDLE = 0
 PUNCH = 1
 KICK = 2
+WIN = 3
+DEAD = 4
 
 class Fighter():
     def __init__(self, x, y):
@@ -28,23 +30,45 @@ class Fighter():
         self.animations = []
         self.load_images()
 
+        self.play_once = False
+
+    def set_action(self, new_action, play_once=False):
+        if new_action != self.action:
+            self.action = new_action
+            self.frame_index = 0
+            self.update_time = pygame.time.get_ticks()
+            self.play_once = play_once
 
     def load_images(self):
         self.animations = []
 
+        #IDLE (0)
         idle_frames = self.load_idle_sheet(
             "assets/sprites/Fighter1/Shinchan-idle.png", 3
         )
-
         self.animations.append(idle_frames)
 
+        #PUNCH (1)
         punch = pygame.image.load("assets/sprites/Fighter1/Shinchan-punch.png").convert_alpha()
         punch = pygame.transform.scale(punch, (180, 200))
         self.animations.append([punch])
-        
+
+        #KICK (2)
         kick = pygame.image.load("assets/sprites/Fighter1/Shinchan-kick.png").convert_alpha()
         kick = pygame.transform.scale(kick, (180, 200))
         self.animations.append([kick])
+
+        #WIN (3)
+        win_sheet = self.load_idle_sheet(
+            "assets/sprites/Fighter1/Shinchan-win.png", 3
+        )
+        self.animations.append(win_sheet)
+
+        #DEAD (4)
+        dead = pygame.image.load("assets/sprites/Fighter1/Shinchan-over.png").convert_alpha()
+        dead = pygame.transform.scale(dead, (180, 230))
+        self.animations.append([dead])
+
 
     def load_idle_sheet(self, path, frames):
         sheet = pygame.image.load(path).convert_alpha()
@@ -58,13 +82,6 @@ class Fighter():
             animation.append(frame)
         return animation
     
-    def set_action(self, new_action):
-        if new_action != self.action:
-            self.action = new_action
-            self.frame_index = 0
-            self.update_time = pygame.time.get_ticks()
-
-    
     def update_animation(self):
         current_time = pygame.time.get_ticks()
         if current_time - self.update_time > self.animation_cooldown:
@@ -72,54 +89,60 @@ class Fighter():
             self.frame_index += 1
 
             if self.frame_index >= len(self.animations[self.action]):
-                self.frame_index = 0
+                if self.play_once:
+                    self.frame_index = len(self.animations[self.action]) - 1
+                else:
+                    self.frame_index = 0
 
 
     def movey(self, actions: Actions):
-        if self.attacking == False:
+        if self.action in (DEAD, WIN):
+            return
+        
+        if self.health <= 0 or self.attacking:
+            return
             # Apply gravity
-            onGround = self.rect.y >= FLOOR_TOP_Y
-            if actions.jump and onGround:
-                self.vel_y = JUMP_VELOCITY
-            self.vel_y += GRAVITY
-            self.rect.y += self.vel_y
+        onGround = self.rect.y >= FLOOR_TOP_Y
+        if actions.jump and onGround:
+            self.vel_y = JUMP_VELOCITY
 
-            # Prevent falling below the floor
-            if self.rect.y > FLOOR_TOP_Y:
-                self.rect.y = FLOOR_TOP_Y
-                self.vel_y = 0
+        self.vel_y += GRAVITY
+        self.rect.y += self.vel_y
+
+        # Prevent falling below the floor
+        if self.rect.y > FLOOR_TOP_Y:
+            self.rect.y = FLOOR_TOP_Y
+            self.vel_y = 0
+    
 
     def movex(self, actions: Actions, target):
-        if self.attacking == False:
-            self.rect.x += actions.movex * self.speed
+        if self.action in (DEAD, WIN):
+            return
+
+        self.rect.x += actions.movex * self.speed
         
-            # Keep fighter within screen bounds
-            if self.rect.left < 0:
-                self.rect.left = 0
-            if self.rect.right > 1000:
-                self.rect.right = 1000
-            if self.rect.top < 0:
-                self.rect.top = 0
-            if self.rect.bottom > 600:
-                self.rect.bottom = 600
+        # Keep fighter within screen bounds
+        if self.rect.left < 0:
+            self.rect.left = 0
+        if self.rect.right > 1000:
+            self.rect.right = 1000
+        
+        # Flip fighter based on movement direction
+        if actions.movex > 0:
+            self.flip = False
+        if actions.movex < 0:
+            self.flip = True
 
-            #ensure players face each other
-            #if target.rect.centerx > self.rect.centerx:
-            #    self.flip = False
-            #else:
-             #   self.flip = True
-
-            if actions.movex > 0:
-                self.flip = False
-            elif actions.movex < 0:
-                self.flip = True
 
     def attack(self, surface, target):
+        if self.health <= 0:
+            return
+        
         if not self.attacking:
             return
         
         # Define attack hitbox
-        hitbox_width = 2
+        hitbox_width = 30
         hitbox_height = 60
 
         if self.flip:
@@ -141,6 +164,11 @@ class Fighter():
         #pygame.draw.rect(surface, (0, 255, 0), attacking_rect, 2)
 
     def handle_attack(self, actions: Actions):
+        if self.action in (DEAD, WIN):
+            return
+        
+        if self.health <= 0:
+            return
         #if already attacking, count down
         if self.attack_timer > 0:
             self.attack_timer -= 1
@@ -163,10 +191,14 @@ class Fighter():
             self.attacking = True
             self.hit_applied = False 
             self.set_action(KICK)
-         
+
 
     def draw(self, surface):
-        self.update_animation()
+        if self.action != DEAD:
+            self.update_animation()
+        else:
+            self.frame_index = 0
+
         image = self.animations[self.action][self.frame_index]
         if self.flip:
             image = pygame.transform.flip(image, True, False)
