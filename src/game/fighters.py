@@ -119,6 +119,8 @@ class Fighter():
         if self.action in (DEAD, WIN):
             return
 
+        prev_x = self.rect.x
+        
         self.rect.x += actions.movex * self.speed
         
         # Keep fighter within screen bounds
@@ -127,12 +129,17 @@ class Fighter():
         if self.rect.right > 1000:
             self.rect.right = 1000
         
-        #collision with other fighter
-        if self.rect.colliderect(target.rect):
-            if actions.movex > 0:
-                self.rect.right = target.rect.left
-            elif actions.movex < 0:
-                self.rect.left = target.rect.right
+        #detect if on ground
+        self_feet_y = self.rect.bottom
+        target_feet_y = target.rect.bottom
+
+        FEET_TOLERSNCE = 25
+
+        same_level = abs(self_feet_y - target_feet_y) < FEET_TOLERSNCE
+        
+        if same_level and self.rect.colliderect(target.rect):
+            self.rect.x = prev_x
+
         # Flip fighter based on movement direction
         if actions.movex > 0:
             self.flip = False
@@ -141,10 +148,7 @@ class Fighter():
 
 
     def attack(self, surface, target):
-        if self.health <= 0:
-            return
-        
-        if not self.attacking:
+        if self.health <= 0 or not self.attacking:
             return
         
         # Define attack hitbox
@@ -166,6 +170,15 @@ class Fighter():
             target.health -= 10
             target.health = max(0, target.health)
             self.hit_applied = True
+
+        #knockback effect
+            knockback_force = 20
+            if self.flip:
+                target.rect.x -= knockback_force
+            else:
+                target.rect.x += knockback_force
+
+            target.vel_y = -5
 
         #pygame.draw.rect(surface, (0, 255, 0), attacking_rect, 2)
 
