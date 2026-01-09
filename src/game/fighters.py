@@ -127,6 +127,12 @@ class Fighter():
         if self.rect.right > 1000:
             self.rect.right = 1000
         
+        #collision with other fighter
+        if self.rect.colliderect(target.rect):
+            if actions.movex > 0:
+                self.rect.right = target.rect.left
+            elif actions.movex < 0:
+                self.rect.left = target.rect.right
         # Flip fighter based on movement direction
         if actions.movex > 0:
             self.flip = False

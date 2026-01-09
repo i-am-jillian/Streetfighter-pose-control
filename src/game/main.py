@@ -29,11 +29,14 @@ background_image = pygame.image.load("assets/backgrounds/background.jpg").conver
 gameOver_img = pygame.image.load("assets/sprites/GameOver/GameOver.png").convert_alpha()
 gameOver_img = pygame.transform.scale(gameOver_img, (400, 400))
 
-winner_img = pygame.image.load("assets/sprites/GameOver/GameOver.png").convert_alpha()
-winner_img = pygame.transform.scale(winner_img, (400, 400))
+winner_img = pygame.image.load("assets/sprites/GameOver/YouWin.png").convert_alpha()
+winner_img = pygame.transform.scale(winner_img, (500, 300))
 
-UI_X = SCREEN_WIDTH // 2 - 200
-UI_Y = -20
+UI_X_WIN = SCREEN_WIDTH // 2 - 250
+UI_Y_WIN = 10
+
+UI_X_OVER = SCREEN_WIDTH // 2 - 200
+UI_Y_OVER = -20
 
 #function to draw background
 def draw_background():
@@ -88,10 +91,10 @@ while run:
             fighter1.set_action(WIN)
 
     if game_state == GAME_OVER:
-            if winner == "Player 2":
-                screen.blit(winner_img, (UI_X, UI_Y))
+            if winner == "Player 1":
+                screen.blit(winner_img, (UI_X_WIN, UI_Y_WIN))
             else:
-                screen.blit(gameOver_img, (UI_X, UI_Y))
+                screen.blit(gameOver_img, (UI_X_OVER, UI_Y_OVER))
 
         #create action instances for each player
 
