@@ -96,14 +96,12 @@ class Fighter():
 
 
     def movey(self, actions: Actions):
-        if self.action in (DEAD, WIN):
+        if self.action in (DEAD, WIN) or self.health <= 0:
             return
         
-        if self.health <= 0 or self.attacking:
-            return
             # Apply gravity
         onGround = self.rect.y >= FLOOR_TOP_Y
-        if actions.jump and onGround:
+        if actions.jump and onGround and not self.attacking:
             self.vel_y = JUMP_VELOCITY
 
         self.vel_y += GRAVITY

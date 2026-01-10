@@ -51,6 +51,25 @@ def draw_health_bar(health, x, y):
     pygame.draw.rect(screen, RED, (x, y, 400, 30)) #draw background bar
     pygame.draw.rect(screen, YELLOW, (x, y, 400 * ratio, 30)) #draw background bar
 
+def fighterOverlap(a,b):
+    if not a.rect.colliderect(b.rect):
+        return
+    overlap_left = a.rect.right - b.rect.left
+    overlap_right = b.rect.right - a.rect.left
+    push = min(overlap_left, overlap_right)
+
+    if a.rect.centerx < b.rect.centerx:
+        a.rect.x -= push // 2
+        b.rect.x += push - push // 2
+    else:
+        a.rect.x += push // 2
+        b.rect.x -= push - push // 2
+
+    a.rect.left = max(0, a.rect.left)
+    a.rect.right = min(1000, a.rect.right)
+    b.rect.left = max(0, b.rect.left)
+    b.rect.right = min(1000, b.rect.right)
+
 #create fighter instance
 fighter1 = Fighter(200, 310)
 fighter2 = FighterAI(700, 310)
@@ -84,6 +103,8 @@ while run:
         fighter2.movey(actions_p2)
         fighter2.handle_attack(actions_p2)
         fighter2.attack(screen, fighter1)
+
+        fighterOverlap(fighter1, fighter2)
 
         #check game over
         if fighter1.health <= 0:
