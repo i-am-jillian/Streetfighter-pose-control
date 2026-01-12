@@ -139,11 +139,7 @@ class Fighter():
             self.rect.x = prev_x
 
         # Flip fighter based on movement direction
-        if actions.movex > 0:
-            self.flip = False
-        if actions.movex < 0:
-            self.flip = True
-
+        self.flip = target.rect.centerx < self.rect.centerx
 
     def attack(self, surface, target):
         if self.health <= 0 or not self.attacking:
@@ -151,12 +147,10 @@ class Fighter():
         
         # Define attack hitbox
         hitbox_width = 30
-        hitbox_height = 60
+        hitbox_height = 30
 
-        if self.flip:
-            hitbox_x = self.rect.left - hitbox_width
-        else:
-            hitbox_x = self.rect.right
+        target_left = target.rect.centerx < self.rect.centerx
+        hitbox_x = (self.rect.left - hitbox_width) if target_left else (self.rect.right)
         
         attacking_rect = pygame.Rect(
             hitbox_x,
