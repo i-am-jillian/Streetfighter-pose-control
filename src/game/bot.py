@@ -10,6 +10,7 @@ class FighterAI(Fighter):
         self.last_move_time = time.time()
         self.last_attack_time = time.time()
         self.attack_cooldown = 0
+        self.attack_delay = 0
 
     def getActions(self, target: Fighter) -> Actions:
         actions = Actions()
@@ -28,18 +29,26 @@ class FighterAI(Fighter):
             else:
                 actions.movex = 0
         
-        attackRange = 150
+        attackRange = 180
         if self.attack_cooldown > 0:
             self.attack_cooldown -= 1
-
-        if d < attackRange and self.attack_cooldown == 0 and not self.attacking:
-            if random.random() <0.08:
+        
+        if self.attack_delay > 0:
+            self.attack_delay -= 1
+            if self.attack_delay == 0:
                 if random.random() < 0.5:
                     actions.punch = True
+                    print("BOT PUNCH!")
                 else:
                     actions.kick = True
-                self.attack_cooldown = 75
+                    print("BOT KICK!")
                 actions.movex = 0
+
+        if d < attackRange and self.attack_cooldown == 0 and not self.attacking and self.attack_delay == 0:
+            if random.random() < 0.15:  
+                self.attack_delay = 5 
+                self.attack_cooldown = 60 
+                print(f"BOT queuing attack! Distance: {d}")
         
         return actions
 

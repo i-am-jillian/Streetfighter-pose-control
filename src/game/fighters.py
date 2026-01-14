@@ -18,7 +18,7 @@ class Fighter():
 
         self.flip = False
         self.rect = pygame.Rect(x, y, 130, 180)
-        self.speed = 10
+        self.speed = 20
         self.vel_y = 0
         self.health = 100
 
@@ -29,7 +29,7 @@ class Fighter():
         self.action = IDLE
         self.frame_index = 0
         self.update_time = pygame.time.get_ticks()
-        self.animation_cooldown = 300
+        self.animation_cooldown = 100
 
         self.animations = []
         self.load_images()
@@ -199,22 +199,21 @@ class Fighter():
         #if already attacking, count down
         if self.attack_timer > 0:
             self.attack_timer -= 1
-            return
         
-        if self.attacking:
-            self.attacking = False
-            self.set_action(IDLE)
+            if self.attack_timer == 0:
+                self.attacking = False
+                self.set_action(IDLE)
             return
         
         #start new attack
         if actions.punch:
-            self.attack_timer = 12
+            self.attack_timer = 5
             self.attacking = True
             self.hit_applied = False
             self.set_action(PUNCH)
 
         elif actions.kick:
-            self.attack_timer = 16
+            self.attack_timer = 7
             self.attacking = True
             self.hit_applied = False 
             self.set_action(KICK)

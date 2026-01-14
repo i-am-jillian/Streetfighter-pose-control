@@ -12,7 +12,7 @@ class ActionDetector:
         self.la_history = deque(maxlen = 6)
         self.leaning_history = deque(maxlen = 8)
 
-        self.cooldown = {"punch": 0, "kick": 0, "jump": 0, "move": 0}
+        self.cooldown = {"punch": 0, "kick": 0, "jump": 0, "move_left": 0, "move_right": 0}
     
     #cooldown
     def cooldowns(self):
@@ -68,11 +68,14 @@ class ActionDetector:
         l_vx, l_vy = self.velocity(self.lw_history)
 
         #thesholds
-        ELBOW_THRESHOLD = 150
-        EXTENSION_MIN = 0.75
-        VEL_MIN = 0.025
+        ELBOW_THRESHOLD = 155
+        EXTENSION_MIN = 0.80
+        VEL_MIN = 0.035
 
         def punch_detected(elbow_degree, extension, vx, wrist_pos, shoulder_pos):
+
+            #print(f"Punch check - Elbow: {elbow_degree:.1f}°, Ext: {extension:.2f}, Vx: {vx:.3f}")
+
             if (elbow_degree < ELBOW_THRESHOLD):
                 return False
             if (extension < EXTENSION_MIN):
@@ -82,38 +85,30 @@ class ActionDetector:
                 return False
             
             outward = (wrist_pos[0] - shoulder_pos[0])
-            if abs(vx) < VEL_MIN:
-                return False
             if outward * vx <= 0:
+                return False
+            
+            wrist_shoulder_height_diff = abs(wrist_pos[1] - shoulder_pos[1])
+            if wrist_shoulder_height_diff > 0.15:
                 return False
             return True
         
         if self.cooldown["punch"] == 0:
-            if facing == "right":
-                r_right = (rw[0]>rs[0])
-                l_right = (lw[0]>ls[0])
-
-                if punch_detected(right_elbow_degree, right_extension, r_vx, rw, rs):
+            
+            right_arm_punching = punch_detected(right_elbow_degree, right_extension, r_vx, rw, rs)
+            left_arm_punching = punch_detected(left_elbow_degree, left_extension, l_vx, lw, ls)
+            
+            if right_arm_punching or left_arm_punching:
+                
+                if (right_arm_punching and r_vx > 0) or (left_arm_punching and l_vx > 0):
                     actions.append("PUNCH_RIGHT")
-                    self.cooldown["punch"] = 10
-
-                elif punch_detected(left_elbow_degree, left_extension, l_vx, lw, ls):
-                    actions.append("PUNCH_RIGHT")
-                    self.cooldown["punch"] = 10
-
-            elif facing == "left":
-                if punch_detected(left_elbow_degree, left_extension, l_vx, lw, ls):
+                
+                elif (right_arm_punching and r_vx < 0) or (left_arm_punching and l_vx < 0):
                     actions.append("PUNCH_LEFT")
-                    self.cooldown["punch"] = 10
-
-                elif punch_detected(right_elbow_degree, right_extension, r_vx, rw, rs):
-                    actions.append("PUNCH_LEFT")
-                    self.cooldown["punch"] = 10
-
-            else: 
-                if punch_detected(right_elbow_degree, right_extension, r_vx, rw, rs) or punch_detected(left_elbow_degree, left_extension, l_vx, lw, ls):
+                else:
                     actions.append("PUNCH")
-                    self.cooldown["punch"] = 10
+                
+                self.cooldown["punch"] = 5
 
         #kick
         rk = xy(landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value])
@@ -125,18 +120,23 @@ class ActionDetector:
         self.la_history.append(la)
 
         #knee up check
-        KNEE_LIFT = 0.08         # knee above hip by this margin
-        KNEE_ANGLE_MIN = 90
+        KNEE_LIFT = 0.05         # knee above hip by this margin
+        KNEE_ANGLE_MAX = 90
 
         def kick_detected(hip_pos, knee_pos, ankle_pos):  # side = "right" or "left"
-            knee_lifted = (hip_pos[1] - knee_pos[1]) > KNEE_LIFT
+            lift_amount = hip_pos[1] - knee_pos[1]
+            knee_lifted = lift_amount > KNEE_LIFT
+
             if not knee_lifted:
                 return False
             
             knee_angle_val = angle(hip_pos, knee_pos, ankle_pos)
-            if knee_angle_val > 160:  # Too straight, not a kick motion
+
+            if knee_angle_val > KNEE_ANGLE_MAX: 
                 return False
             
+            print(f"Kick check - Lift: {lift_amount:.3f}, Angle: {knee_angle_val:.1f}°")
+
             return True
             
         if self.cooldown["kick"] == 0:
@@ -144,26 +144,17 @@ class ActionDetector:
             left_kick = kick_detected(lh, lk, la)
             
             if facing == "right":
-                # Right kick for right-facing fighter
-                if right_kick:
+                if right_kick or left_kick:
                     actions.append("KICK_RIGHT")
-                    self.cooldown["kick"] = 15
-                elif left_kick:
-                    actions.append("KICK_RIGHT")
-                    self.cooldown["kick"] = 15
+                    self.cooldown["kick"] = 6
             elif facing == "left":
-                # Left kick for left-facing fighter
-                if left_kick:
+                if left_kick or right_kick:
                     actions.append("KICK_LEFT")
-                    self.cooldown["kick"] = 15
-                elif right_kick:
-                    actions.append("KICK_LEFT")
-                    self.cooldown["kick"] = 15
+                    self.cooldown["kick"] = 6
             else:
-                # No facing, detect any kick
                 if right_kick or left_kick:
                     actions.append("KICK")
-                    self.cooldown["kick"] = 15
+                    self.cooldown["kick"] = 6
 
 
         #jump
@@ -177,20 +168,35 @@ class ActionDetector:
                 both_hands_up = (r_w.y < nose.y - margin) and (l_w.y < nose.y - margin)
                 if both_hands_up:
                     actions.append("JUMP")
-                    self.cooldown["jump"] = 30
+                    self.cooldown["jump"] = 5
+                    print("jump detected")
 
-        lean = (sh_c[0] - hip_c[0]) / scale
-        self.leaning_history.append(lean)
-        lean_avg = sum(self.leaning_history) / len(self.leaning_history)
+        #Movement detection
+        ls_landmark = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
+        rs_landmark = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
+        
+        if self.cooldown["move_left"] == 0:
+            if visible_enough([ls_landmark.visibility, l_w.visibility], threshold=0.5):
+                left_hand_high = (l_w.y < ls[1] - 0.05)
+                right_hand_low = (r_w.y > rs[1] + 0.02)
+                
+                if left_hand_high and right_hand_low:
+                    actions.append("MOVE_LEFT")
+                    self.cooldown["move_left"] = 1
+                    print("MOVE_LEFT DETECTED")
 
-        LEAN_THRESHOLD = 0.08
-        if self.cooldown["move"] == 0:
-            if lean_avg > LEAN_THRESHOLD:
-                actions.append("MOVE_RIGHT")
-                self.cooldown["move"] = 6
-            elif lean_avg < -LEAN_THRESHOLD:
-                actions.append("MOVE_LEFT")
-                self.cooldown["move"] = 6
+        if self.cooldown["move_right"] == 0:
+            if visible_enough([rs_landmark.visibility, r_w.visibility], threshold=0.5):
+                right_hand_high = (r_w.y < rs[1] - 0.05)
+                left_hand_low = (l_w.y > ls[1] + 0.02)
+                
+                if right_hand_high and left_hand_low:
+                    actions.append("MOVE_RIGHT")
+                    self.cooldown["move_right"] = 1
+                    print("MOVE_RIGHT DETECTED")
+
+        if actions:
+            print(f"All detected actions: {actions}")
 
         self.cooldowns()
         return actions
