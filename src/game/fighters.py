@@ -1,9 +1,11 @@
+from matplotlib import scale
 import pygame
 from actions import Actions
 
 GRAVITY = 2 
 JUMP_VELOCITY = -30
 FLOOR_TOP_Y = 310
+
 IDLE = 0
 PUNCH = 1
 KICK = 2
@@ -11,7 +13,9 @@ WIN = 3
 DEAD = 4
 
 class Fighter():
-    def __init__(self, x, y):
+    def __init__(self, x, y, variant="player"):
+        self.variant = variant #player or bot
+
         self.flip = False
         self.rect = pygame.Rect(x, y, 130, 180)
         self.speed = 10
@@ -40,37 +44,49 @@ class Fighter():
             self.play_once = play_once
 
     def load_images(self):
-        self.animations = []
+        self.animations = [None] * 5
 
-        #IDLE (0)
-        idle_frames = self.load_idle_sheet(
-            "assets/sprites/Fighter1/Shinchan-idle.png", 3
-        )
-        self.animations.append(idle_frames)
+        if self.variant == "bot":
+            paths = {
+                IDLE: "assets/sprites/Fighter2/Bot-IDLE.png",
+                PUNCH: "assets/sprites/Fighter2/Bot-punch.png",
+                KICK: "assets/sprites/Fighter2/Bot-kick.png",
+                WIN: "assets/sprites/Fighter1/Shinchan-win.png",
+                DEAD: "assets/sprites/Fighter2/Bot-over.png",
+            }
+        else:
+            paths = {
+                IDLE: "assets/sprites/Fighter1/Shinchan-idle.png",
+                PUNCH: "assets/sprites/Fighter1/Shinchan-punch.png",
+                KICK: "assets/sprites/Fighter1/Shinchan-kick.png",
+                WIN: "assets/sprites/Fighter1/Shinchan-win.png",
+                DEAD: "assets/sprites/Fighter1/Shinchan-over.png",
+            }
+
+        #IDLE (3 frames)
+        self.animations[IDLE] = self.load_idle_sheet(paths[IDLE], frames = 3, scale=(150,220))
 
         #PUNCH (1)
-        punch = pygame.image.load("assets/sprites/Fighter1/Shinchan-punch.png").convert_alpha()
-        punch = pygame.transform.scale(punch, (180, 200))
-        self.animations.append([punch])
+        punch = pygame.image.load(paths[PUNCH]).convert_alpha()
+        punch = pygame.transform.scale(punch, (200, 200))
+        self.animations[PUNCH] = [punch]
 
         #KICK (2)
-        kick = pygame.image.load("assets/sprites/Fighter1/Shinchan-kick.png").convert_alpha()
-        kick = pygame.transform.scale(kick, (180, 200))
-        self.animations.append([kick])
+        kick = pygame.image.load(paths[KICK]).convert_alpha()
+        kick = pygame.transform.scale(kick, (200, 200))
+        self.animations[KICK] = [kick]
+
 
         #WIN (3)
-        win_sheet = self.load_idle_sheet(
-            "assets/sprites/Fighter1/Shinchan-win.png", 3
-        )
-        self.animations.append(win_sheet)
+        self.animations[WIN] = self.load_idle_sheet(paths[WIN], frames = 3, scale=(150,220))
 
         #DEAD (4)
-        dead = pygame.image.load("assets/sprites/Fighter1/Shinchan-over.png").convert_alpha()
-        dead = pygame.transform.scale(dead, (180, 230))
-        self.animations.append([dead])
+        dead = pygame.image.load(paths[DEAD]).convert_alpha()
+        dead = pygame.transform.scale(dead, (260, 260))
+        self.animations[DEAD] = [dead]
 
 
-    def load_idle_sheet(self, path, frames):
+    def load_idle_sheet(self, path, frames, scale):
         sheet = pygame.image.load(path).convert_alpha()
         frame_width = sheet.get_width()//frames
         frame_height = sheet.get_height()
@@ -78,7 +94,7 @@ class Fighter():
         animation = []
         for i in range(frames):
             frame = sheet.subsurface(i * frame_width, 0, frame_width, frame_height)
-            frame = pygame.transform.scale(frame, (130, 220))
+            frame = pygame.transform.scale(frame, scale)
             animation.append(frame)
         return animation
     

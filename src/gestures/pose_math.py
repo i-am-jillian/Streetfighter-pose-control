@@ -1,9 +1,8 @@
 import numpy as np
 from collections import deque
 
-def lm_xy(landmarks, idx):
-    lm = landmarks[idx]
-    return np.array([lm.x, lm.y], dtype = np.float32), lm.visibility
+def xy(landmarks):
+    return np.array([landmarks.x, landmarks.y], dtype=np.float32)
 
 def distance(a, b):
     return float(np.linalg.norm(a - b))
