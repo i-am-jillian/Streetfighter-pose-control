@@ -1,8 +1,20 @@
+import sys
+import os
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_dir)
+sys.path.append(os.path.join(parent_dir, 'gestures'))
+
+import cv2
 import pygame
+import mediapipe as mp
 from fighters import IDLE, PUNCH, KICK, WIN, DEAD, Fighter
 from actions import Actions #importing class from the actions.py file
 from input_keyboard import get_actions_player1 #importing function from input_keyboard.py file
 from bot import FighterAI
+from gestures.rules import ActionDetector
+
+mp_drawing = mp.solutions.drawing_utils
+mp_pose = mp.solutions.pose
 
 pygame.init() #initialized pygame
 
@@ -71,16 +83,65 @@ def fighterOverlap(a,b):
     b.rect.right = min(1000, b.rect.right)
 
 #create fighter instance
-fighter1 = Fighter(200, 310)
+fighter1 = Fighter(200, 310, variant="player")
 fighter2 = FighterAI(700, 310)
 game_state = PLAYING
 winner = None
 
-#main game loop
+#Initialize webcam detection
+cap = cv2.VideoCapture(0) #capturing video from the default camera
+action_detector = ActionDetector()
+pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
+#MAIN GAME LOOP
 run = True
 while run:
     clock.tick(FPS)
+
+    ret, frame = cap.read() #reading a frame from the camera
+    actions_p1 = Actions()
+
+
+    if ret:
+        frame = cv2.flip(frame, 1) #flipping the frame horizontally for a mirror effect
+        #recolor image to RGB
+        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) #converting the frame from BGR to RGB
+        image.flags.writeable = False #setting the image to non-writeable to improve performance
+
+        #make detection
+        results = pose.process(image)
+
+        #recolor back to BGR
+        image.flags.writeable = True #setting the image back to writeable
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        
+        if results.pose_landmarks:
+            landmarks = results.pose_landmarks.landmark
+            
+            detected_actions = action_detector.update(landmarks, fighter2.rect.centerx)
+
+            #convert detected actions to Actions instance
+            actions_p1 = Actions()
+            for action in detected_actions:
+                if action == "PUNCH_RIGHT" or action == "PUNCH_LEFT" or action == "PUNCH":
+                    actions_p1.punch = True
+                elif action == "KICK_RIGHT" or action == "KICK_LEFT" or action == "KICK":
+                    actions_p1.kick = True
+                elif action == "JUMP":
+                    actions_p1.jump = True
+                elif action == "MOVE_LEFT":
+                    actions_p1.move_left = True
+                elif action == "MOVE_RIGHT":
+                    actions_p1.move_right = True
+                
+
+            mp_drawing.draw_landmarks(image, 
+                                      results.pose_landmarks, 
+                                      mp_pose.POSE_CONNECTIONS, 
+                                      mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2), 
+                                      mp_drawing.DrawingSpec(color=(0,0,255), thickness=2, circle_radius=2))
+            
+        cv2.imshow("MediaPipe Feed", image) #pop up on the screen showing the frame
 
     #draw background
     draw_background()
@@ -90,7 +151,7 @@ while run:
     draw_health_bar(fighter2.health, 580, 20)
 
     if game_state == PLAYING:
-        actions_p1 = get_actions_player1()
+        #actions_p1 = get_actions_player1()
 
         fighter1.movex(actions_p1, fighter2)
         fighter1.movey(actions_p1)
@@ -125,16 +186,8 @@ while run:
             else:
                 screen.blit(gameOver_img, (UI_X_OVER, UI_Y_OVER))
 
-        #create action instances for each player
 
-        #move fighters
-    #fighter1.movex(actions_p1, fighter2)
-    #fighter1.movey(actions_p1)
-
-    #fighter1.handle_attack(actions_p1)
-    #fighter1.attack(screen, fighter2)
-
-        #draw fighters
+    #draw fighters
     fighter1.draw(screen)
     fighter2.draw(screen)
 
@@ -143,9 +196,12 @@ while run:
         if event.type == pygame.QUIT:
             run = False
 
-
+    if cv2.waitKey(10) & 0xFF == ord("q"): #exist if 'q' is pressed
+        break
     #update display
     pygame.display.update()
 
 #exit pygame
+cap.release()
+cv2.destroyAllWindows()
 pygame.quit()

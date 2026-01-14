@@ -9,7 +9,7 @@ cap = cv2.VideoCapture(0) #capturing video from the default camera
 with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
     while cap.isOpened(): #checking if the camera is opened successfully
         ret, frame = cap.read() #reading a frame from the camera
-
+        frame = cv2.flip(frame, 1) #flipping the frame horizontally for a mirror effect
         #recolor image to RGB
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) #converting the frame from BGR to RGB
         image.flags.writeable = False #setting the image to non-writeable to improve performance

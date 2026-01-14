@@ -6,7 +6,7 @@ from actions import Actions
 
 class FighterAI(Fighter):
     def __init__(self, x, y):
-        super().__init__(x,y)
+        super().__init__(x,y, variant="bot")
         self.last_move_time = time.time()
         self.last_attack_time = time.time()
         self.attack_cooldown = 0
