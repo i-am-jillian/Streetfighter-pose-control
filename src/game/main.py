@@ -39,6 +39,9 @@ WHITE = (255, 255, 255)
 #load backgroung image
 background_image = pygame.image.load("assets/backgrounds/background.jpg").convert_alpha()
 
+ko_img = pygame.image.load("assets/sprites/GameOver/KO.png").convert_alpha()
+ko_img = pygame.transform.scale(ko_img, (150, 100))
+
 gameOver_img = pygame.image.load("assets/sprites/GameOver/GameOver.png").convert_alpha()
 gameOver_img = pygame.transform.scale(gameOver_img, (400, 400))
 
@@ -51,6 +54,8 @@ UI_Y_WIN = 10
 UI_X_OVER = SCREEN_WIDTH // 2 - 200
 UI_Y_OVER = -20
 
+KO_X = SCREEN_WIDTH // 2 - 65
+KO_Y = -10
 #function to draw background
 def draw_background():
     scaled_background = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -90,65 +95,76 @@ winner = None
 
 #Initialize webcam detection
 cap = cv2.VideoCapture(0) #capturing video from the default camera
+
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640) #setting width of the frame
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480) #setting height of the frame
+cap.set(cv2.CAP_PROP_FPS, 30) #setting frames per second
+
 action_detector = ActionDetector()
-pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5, model_complexity = 0)
+
+frame_count = 0
+POSE_PROCESS_INTERVAL = 1  # Process every 2nd frame
 
 #MAIN GAME LOOP
 run = True
 while run:
     clock.tick(FPS)
 
-    ret, frame = cap.read() #reading a frame from the camera
     actions_p1 = Actions()
 
+    if frame_count % POSE_PROCESS_INTERVAL == 0:
+        ret, frame = cap.read() #reading the frame from the webcam
 
-    if ret:
-        frame = cv2.flip(frame, 1) #flipping the frame horizontally for a mirror effect
-        #recolor image to RGB
-        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) #converting the frame from BGR to RGB
-        image.flags.writeable = False #setting the image to non-writeable to improve performance
+        if ret:
+            frame = cv2.flip(frame, 1) #flipping the frame horizontally for a mirror effect
+            #recolor image to RGB
+            image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) #converting the frame from BGR to RGB
+            image.flags.writeable = False #setting the image to non-writeable to improve performance
+            #make detection
+            results = pose.process(image)
 
-        #make detection
-        results = pose.process(image)
-
-        #recolor back to BGR
-        image.flags.writeable = True #setting the image back to writeable
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            #recolor back to BGR
+            image.flags.writeable = True #setting the image back to writeable
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         
-        if results.pose_landmarks:
-            landmarks = results.pose_landmarks.landmark
+            if results.pose_landmarks:
+                landmarks = results.pose_landmarks.landmark
             
-            detected_actions = action_detector.update(landmarks, fighter2.rect.centerx)
+                detected_actions = action_detector.update(landmarks, fighter2.rect.centerx)
 
-            #convert detected actions to Actions instance
-            actions_p1 = Actions()
-            for action in detected_actions:
-                if action == "PUNCH_RIGHT" or action == "PUNCH_LEFT" or action == "PUNCH":
-                    actions_p1.punch = True
-                elif action == "KICK_RIGHT" or action == "KICK_LEFT" or action == "KICK":
-                    actions_p1.kick = True
-                elif action == "JUMP":
-                    actions_p1.jump = True
-                elif action == "MOVE_LEFT":
-                    actions_p1.move_left = True
-                elif action == "MOVE_RIGHT":
-                    actions_p1.move_right = True
+                #convert detected actions to Actions instance
+                for action in detected_actions:
+                    if action in ["PUNCH_RIGHT", "PUNCH_LEFT", "PUNCH"]:
+                        actions_p1.punch = True
+                    elif action in ["KICK_RIGHT", "KICK_LEFT", "KICK"]:
+                        actions_p1.kick = True
+                    elif action == "JUMP":
+                        actions_p1.jump = True
+                    elif action == "MOVE_LEFT":
+                        actions_p1.movex = 1
+                    elif action == "MOVE_RIGHT":
+                        actions_p1.movex = -1
                 
 
-            mp_drawing.draw_landmarks(image, 
+                mp_drawing.draw_landmarks(image, 
                                       results.pose_landmarks, 
                                       mp_pose.POSE_CONNECTIONS, 
                                       mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2), 
                                       mp_drawing.DrawingSpec(color=(0,0,255), thickness=2, circle_radius=2))
             
-        cv2.imshow("MediaPipe Feed", image) #pop up on the screen showing the frame
+            cv2.imshow("MediaPipe Feed", image) #pop up on the screen showing the frame
 
+    frame_count += 1
     #draw background
     draw_background()
 
     #show health bars
     draw_health_bar(fighter1.health, 20, 20)
     draw_health_bar(fighter2.health, 580, 20)
+
+    #show ko image
+    screen.blit(ko_img, (KO_X, KO_Y))
 
     if game_state == PLAYING:
         #actions_p1 = get_actions_player1()
