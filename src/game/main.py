@@ -35,6 +35,7 @@ FPS = 60
 YELLOW = (255, 221, 38)
 RED = (255, 0, 0)
 WHITE = (255, 255, 255)
+DARK_RED = (200, 0 , 0)
 
 #load backgroung image
 background_image = pygame.image.load("assets/backgrounds/background.jpg").convert_alpha()
@@ -68,6 +69,32 @@ def draw_health_bar(health, x, y):
     pygame.draw.rect(screen, RED, (x, y, 400, 30)) #draw background bar
     pygame.draw.rect(screen, YELLOW, (x, y, 400 * ratio, 30)) #draw background bar
 
+def draw_restart_button(mouse_pos):
+    button_width = 200
+    button_height = 60
+    button_x = SCREEN_WIDTH // 2 - button_width // 2
+    button_y = SCREEN_HEIGHT - 300
+    
+    #hovering button
+    button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
+
+    if button_rect.collidepoint(mouse_pos):
+        pygame.draw.rect(screen, RED, button_rect)
+    else:
+        pygame.draw.rect(screen, DARK_RED, button_rect)
+    
+    #white border
+    pygame.draw.rect(screen, WHITE, button_rect, 3)
+
+    #text button
+    font = pygame.font.Font(None, 48)
+    text = font.render("RESTART", True, WHITE)
+    text_rect = text.get_rect(center = button_rect.center)
+    screen.blit(text, text_rect)
+
+    return button_rect
+
+
 def fighterOverlap(a,b):
     if not a.rect.colliderect(b.rect):
         return
@@ -87,11 +114,20 @@ def fighterOverlap(a,b):
     b.rect.left = max(0, b.rect.left)
     b.rect.right = min(1000, b.rect.right)
 
+#reset game
+def reset_game():
+    global fighter1, fighter2, game_state, winner, game_over_time
+    fighter1 = Fighter(200, 310, variant = "player")
+    fighter2 = FighterAI(700, 310)
+    game_state = PLAYING
+    winner = Nonegame_over_time = None
+
 #create fighter instance
 fighter1 = Fighter(200, 310, variant="player")
 fighter2 = FighterAI(700, 310)
 game_state = PLAYING
 winner = None
+game_over_time = None
 
 #Initialize webcam detection
 cap = cv2.VideoCapture(0) #capturing video from the default camera
@@ -110,6 +146,7 @@ POSE_PROCESS_INTERVAL = 1  # Process every 2nd frame
 run = True
 while run:
     clock.tick(FPS)
+    mouse_pos = pygame.mouse.get_pos()
 
     actions_p1 = Actions()
 
@@ -189,18 +226,26 @@ while run:
             winner = "Player 2"
             fighter1.set_action(DEAD)
             fighter2.set_action(WIN)
+            game_over_time = pygame.time.get_ticks()
 
         elif fighter2.health <= 0:
             game_state = GAME_OVER
             winner = "Player 1"
             fighter2.set_action(DEAD)
             fighter1.set_action(WIN)
+            game_over_time = pygame.time.get_ticks()
 
     if game_state == GAME_OVER:
             if winner == "Player 1":
                 screen.blit(winner_img, (UI_X_WIN, UI_Y_WIN))
             else:
                 screen.blit(gameOver_img, (UI_X_OVER, UI_Y_OVER))
+
+            #show restart button after 3 seconds
+            if game_over_time is not None:
+                time_since_gameOver = (pygame.time.get_ticks() - game_over_time) / 1000
+                if time_since_gameOver >= 3:
+                    restart_button = draw_restart_button(mouse_pos)
 
 
     #draw fighters
@@ -211,6 +256,11 @@ while run:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN and game_state == GAME_OVER:
+            if game_over_time and (pygame.time.get_ticks()- game_over_time) / 1000 >= 3:
+                if restart_button.collidepoint(event.pos):
+                    reset_game()
 
     if cv2.waitKey(10) & 0xFF == ord("q"): #exist if 'q' is pressed
         break
